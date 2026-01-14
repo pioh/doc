@@ -1,0 +1,18 @@
+# Автогенерированные файлы (создаются build_script.py)
+
+# Главная страница
+/README.md linguist-generated=true
+
+# Книга для GitHub
+/book/** linguist-generated=true
+
+# GitHub Pages
+/index.html linguist-generated=true
+/_sidebar.md linguist-generated=true
+
+# PDF
+/учебник_информатика.pdf binary linguist-generated=true
+
+# Исходники (не автогенерированные)
+/учебник_информатика/chapters/** linguist-generated=false
+/учебник_информатика/build_script.py linguist-generated=false

@@ -130,7 +130,7 @@ class TextbookBuilder:
 ## 📖 Как читать
 
 - **GitHub**: [Онлайн версия](/book/) (оглавление ниже)
-- **GitHub Pages**: [Веб-сайт](https://tema.github.io/doc/) *(если настроен)*
+- **GitHub Pages**: [Веб-сайт](https://pioh.github.io/doc/)
 - **PDF**: [Скачать учебник](./учебник_информатика.pdf)
 
 ---
@@ -201,44 +201,49 @@ python build_script.py
     def convert_chapter_links(self, content, current_chapter):
         """Конвертация упоминаний глав в кликабельные ссылки"""
         
-        # Паттерны для поиска упоминаний глав:
-        # - "Глава 1.2", "глава 1.2", "главе 1.2"
-        # - "Глава 1.2 (Название)"
-        # - "**Глава 1.2**"
-        
-        def replace_chapter_mention(match):
-            full_match = match.group(0)
-            section = match.group(1)
-            chapter = match.group(2)
-            
-            # Находим главу в списке
-            target_chapter = None
+        def find_target_chapter(section, chapter_num):
+            """Находит главу по номеру раздела и главы"""
             for ch in self.chapters:
-                if ch['section_num'] == section.zfill(2) and ch['chapter_num'] == chapter.zfill(2):
-                    target_chapter = ch
-                    break
-            
-            if not target_chapter:
-                return full_match  # Не нашли - оставляем как есть
-            
-            # Создаём ссылку
-            link_text = f"Глава {section}.{chapter}"
-            link_url = f"{target_chapter['section_num']}_{target_chapter['chapter_num']}_{target_chapter['slug']}.md"
-            
-            # Сохраняем окружающее форматирование
-            if '**' in full_match:
-                return f"[**{link_text}**]({link_url})"
-            else:
-                return f"[{link_text}]({link_url})"
+                if ch['section_num'] == section.zfill(2) and ch['chapter_num'] == chapter_num.zfill(2):
+                    return ch
+            return None
         
-        # Ищем упоминания глав
-        patterns = [
-            r'\*\*Глава (\d+)\.(\d+)\*\*',  # **Глава 1.2**
-            r'[Гг]лав[аеуы] (\d+)\.(\d+)',  # Глава 1.2, главе 1.2, и т.д.
-        ]
+        # 1. Обработка **Глава X.Y** (жирные без ссылок)
+        def replace_bold_chapter(match):
+            section = match.group(1)
+            chapter_num = match.group(2)
+            target = find_target_chapter(section, chapter_num)
+            if not target:
+                return match.group(0)
+            link_url = f"{target['section_num']}_{target['chapter_num']}_{target['slug']}.md"
+            return f"[**Глава {section}.{chapter_num}**]({link_url})"
         
-        for pattern in patterns:
-            content = re.sub(pattern, replace_chapter_mention, content)
+        content = re.sub(r'\*\*Глава (\d+)\.(\d+)\*\*(?!\])', replace_bold_chapter, content)
+        
+        # 2. Обработка [Глава X.Y] без ссылки после (не [Глава X.Y](...))
+        def replace_bracket_chapter(match):
+            section = match.group(1)
+            chapter_num = match.group(2)
+            target = find_target_chapter(section, chapter_num)
+            if not target:
+                return match.group(0)
+            link_url = f"{target['section_num']}_{target['chapter_num']}_{target['slug']}.md"
+            return f"[Глава {section}.{chapter_num}]({link_url})"
+        
+        content = re.sub(r'\[Глава (\d+)\.(\d+)\](?!\()', replace_bracket_chapter, content)
+        
+        # 3. Обработка обычных упоминаний: Глава/глава/главе X.Y (не в ссылках)
+        def replace_plain_chapter(match):
+            case_word = match.group(1)  # Глава/глава/главе/главы
+            section = match.group(2)
+            chapter_num = match.group(3)
+            target = find_target_chapter(section, chapter_num)
+            if not target:
+                return match.group(0)
+            link_url = f"{target['section_num']}_{target['chapter_num']}_{target['slug']}.md"
+            return f"[{case_word} {section}.{chapter_num}]({link_url})"
+        
+        content = re.sub(r'(?<!\[|\*)([Гг]лав[аеуы]) (\d+)\.(\d+)(?!\])', replace_plain_chapter, content)
         
         return content
     
@@ -283,7 +288,7 @@ python build_script.py
             # Читаем исходный файл
             with open(source_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            
+                
             # Конвертируем ссылки на главы
             content = self.convert_chapter_links(content, chapter)
             
@@ -319,7 +324,7 @@ python build_script.py
         """Настройка GitHub Pages с Docsify"""
         print("\n🌐 Настройка GitHub Pages (Docsify)...")
         
-        # Создаём index.html для Docsify
+        # Создаём index.html для Docsify с уменьшенными отступами
         index_html = """<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -331,8 +336,70 @@ python build_script.py
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
   <style>
     :root {
-      --base-font-size: 16px;
+      --base-font-size: 15px;
       --theme-color: #0074d9;
+    }
+    
+    /* Уменьшенные отступы */
+    .markdown-section {
+      max-width: 90% !important;
+      padding: 20px 30px 40px 30px !important;
+    }
+    
+    .sidebar {
+      padding: 10px 0 !important;
+    }
+    
+    .sidebar ul li {
+      padding: 2px 0 !important;
+    }
+    
+    /* Компактные заголовки */
+    .markdown-section h1 {
+      margin: 2rem 0 1rem !important;
+      font-size: 2em !important;
+    }
+    
+    .markdown-section h2 {
+      margin: 1.5rem 0 0.8rem !important;
+      font-size: 1.5em !important;
+    }
+    
+    .markdown-section h3 {
+      margin: 1.2rem 0 0.6rem !important;
+      font-size: 1.25em !important;
+    }
+    
+    .markdown-section h4 {
+      margin: 1rem 0 0.5rem !important;
+      font-size: 1.1em !important;
+    }
+    
+    /* Компактные параграфы */
+    .markdown-section p {
+      margin: 0.6em 0 !important;
+      line-height: 1.6 !important;
+    }
+    
+    /* Компактные списки */
+    .markdown-section ul,
+    .markdown-section ol {
+      margin: 0.6em 0 !important;
+      padding-left: 1.5em !important;
+    }
+    
+    .markdown-section li {
+      margin: 0.3em 0 !important;
+    }
+    
+    /* Компактные блоки кода */
+    .markdown-section pre {
+      margin: 1em 0 !important;
+      padding: 1em !important;
+    }
+    
+    .markdown-section code {
+      padding: 2px 4px !important;
     }
   </style>
 </head>
@@ -403,26 +470,28 @@ python build_script.py
     <style>
         @page {{
             size: A4;
-            margin: 2cm;
+            margin: 1.2cm;
             @bottom-center {{
                 content: counter(page);
+                font-size: 9pt;
             }}
         }}
         
         body {{
             font-family: 'Times New Roman', Times, serif;
-            font-size: 12pt;
-            line-height: 1.5;
+            font-size: 10pt;
+            line-height: 1.4;
             color: #000;
         }}
         
         h1 {{
-            font-size: 18pt;
+            font-size: 14pt;
             font-weight: bold;
             text-align: center;
-            margin-top: 2cm;
-            margin-bottom: 1cm;
+            margin-top: 0;
+            margin-bottom: 0.7cm;
             page-break-before: always;
+            page-break-after: avoid;
         }}
         
         h1:first-of-type {{
@@ -430,54 +499,60 @@ python build_script.py
         }}
         
         h2 {{
-            font-size: 14pt;
+            font-size: 11pt;
             font-weight: bold;
-            margin-top: 1cm;
-            margin-bottom: 0.5cm;
+            margin-top: 0.6cm;
+            margin-bottom: 0.3cm;
+            page-break-after: avoid;
         }}
         
         h3 {{
-            font-size: 12pt;
-            font-weight: bold;
-            margin-top: 0.7cm;
-            margin-bottom: 0.3cm;
-        }}
-        
-        h4 {{
-            font-size: 12pt;
+            font-size: 10pt;
             font-weight: bold;
             margin-top: 0.5cm;
             margin-bottom: 0.2cm;
+            page-break-after: avoid;
+        }}
+        
+        h4 {{
+            font-size: 10pt;
+            font-weight: bold;
+            font-style: italic;
+            margin-top: 0.4cm;
+            margin-bottom: 0.15cm;
+            page-break-after: avoid;
         }}
         
         p {{
             text-align: justify;
-            margin-bottom: 0.5cm;
+            margin-bottom: 0.3cm;
         }}
         
         code {{
             font-family: 'Courier New', monospace;
-            font-size: 10pt;
+            font-size: 9pt;
             background-color: #f5f5f5;
-            padding: 2px 4px;
+            padding: 1px 3px;
         }}
         
         pre {{
             font-family: 'Courier New', monospace;
-            font-size: 10pt;
+            font-size: 8pt;
             background-color: #f5f5f5;
-            padding: 10px;
-            border-left: 3px solid #ccc;
+            padding: 6px;
+            border-left: 2px solid #ccc;
             overflow-x: auto;
             white-space: pre-wrap;
+            margin: 0.3cm 0;
         }}
         
         ul, ol {{
-            margin-left: 1cm;
+            margin-left: 0.6cm;
+            margin-bottom: 0.3cm;
         }}
         
         li {{
-            margin-bottom: 0.2cm;
+            margin-bottom: 0.1cm;
         }}
         
         a {{
@@ -495,12 +570,12 @@ python build_script.py
         }}
         
         .title-page h1 {{
-            font-size: 24pt;
+            font-size: 20pt;
             page-break-before: avoid;
         }}
         
         .title-page p {{
-            font-size: 14pt;
+            font-size: 12pt;
             margin-top: 1cm;
         }}
         
@@ -514,13 +589,26 @@ python build_script.py
         }}
         
         .toc-section {{
-            margin-top: 0.5cm;
+            margin-top: 0.4cm;
             font-weight: bold;
+            font-size: 11pt;
         }}
         
         .toc-chapter {{
             margin-left: 0.5cm;
-            margin-top: 0.2cm;
+            margin-top: 0.15cm;
+            font-size: 10pt;
+        }}
+        
+        .toc-subchapter {{
+            margin-left: 1cm;
+            margin-top: 0.1cm;
+            font-size: 9pt;
+            color: #333;
+        }}
+        
+        .chapter {{
+            page-break-before: always;
         }}
     </style>
 </head>
@@ -535,45 +623,98 @@ python build_script.py
         <h1>ОГЛАВЛЕНИЕ</h1>
 """
         
-        # Оглавление
+        # Оглавление с подразделами
         for section_num, section_data in self.toc_structure.items():
             html_content += f'<div class="toc-section">Раздел {int(section_num)}: {section_data["name"]}</div>\n'
             
             for chapter in section_data['chapters']:
                 chapter_id = f"chapter_{chapter['section_num']}_{chapter['chapter_num']}"
                 html_content += f'<div class="toc-chapter">{chapter["full_num"]}. <a href="#{chapter_id}">{chapter["title"]}</a></div>\n'
+                
+                # Добавляем подразделы (## заголовки)
+                try:
+                    with open(chapter['path'], 'r', encoding='utf-8') as f:
+                        chapter_content = f.read()
+                    
+                    # Ищем заголовки уровня 2 (##)
+                    h2_pattern = r'^## (.+)$'
+                    h2_matches = re.finditer(h2_pattern, chapter_content, re.MULTILINE)
+                    
+                    for i, match in enumerate(h2_matches):
+                        h2_title = match.group(1).strip()
+                        # Пропускаем служебные заголовки
+                        if h2_title.lower() in ['введение', 'ключевые термины', 'контрольные вопросы', 'резюме', 'связь с другими темами', 'связь с другими главами']:
+                            continue
+                        h2_id = f"{chapter_id}_h2_{i}"
+                        html_content += f'<div class="toc-subchapter"><a href="#{h2_id}">{h2_title}</a></div>\n'
+                except:
+                    pass  # Если не удалось прочитать главу, пропускаем
         
         html_content += "</div>\n\n"
         
-        # Главы
+        # Главы с bookmarks для PDF
         for chapter in self.chapters:
             source_path = chapter['path']
             
             with open(source_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            # Конвертируем markdown в HTML
-            html_chapter = markdown.markdown(
-                content,
-                extensions=['extra', 'codehilite', 'tables', 'toc']
-            )
+            # Конвертируем ссылки на главы в относительные якоря
+            def convert_pdf_links(match):
+                section = match.group(1)
+                chapter_num = match.group(2)
+                target_id = f"chapter_{section.zfill(2)}_{chapter_num.zfill(2)}"
+                link_text = f"Глава {section}.{chapter_num}"
+                return f'<a href="#{target_id}">{link_text}</a>'
             
-            # Добавляем якорь для оглавления
+            # Заменяем [Глава X.Y](...) на внутренние ссылки
+            content = re.sub(r'\[Глава (\d+)\.(\d+)\]\([^)]+\)', convert_pdf_links, content)
+            content = re.sub(r'\[\*\*Глава (\d+)\.(\d+)\*\*\]\([^)]+\)', lambda m: f'<a href="#chapter_{m.group(1).zfill(2)}_{m.group(2).zfill(2)}"><strong>Глава {m.group(1)}.{m.group(2)}</strong></a>', content)
+            
+            # Конвертируем markdown в HTML с якорями для подразделов
+            md = markdown.Markdown(extensions=['extra', 'codehilite', 'tables', 'toc', 'attr_list'])
+            html_chapter = md.convert(content)
+            
+            # Добавляем ID к подразделам
             chapter_id = f"chapter_{chapter['section_num']}_{chapter['chapter_num']}"
-            html_content += f'<div id="{chapter_id}">\n{html_chapter}\n</div>\n\n'
+            h2_counter = 0
+            
+            def add_h2_id(match):
+                nonlocal h2_counter
+                h2_id = f'{chapter_id}_h2_{h2_counter}'
+                h2_counter += 1
+                return f'<h2 id="{h2_id}">{match.group(1)}</h2>'
+            
+            html_chapter = re.sub(r'<h2>(.+?)</h2>', add_h2_id, html_chapter)
+            
+            # Добавляем главу с классом для page-break
+            html_content += f'<div class="chapter" id="{chapter_id}">\n{html_chapter}\n</div>\n\n'
         
         html_content += "</body></html>"
         
-        # Генерируем PDF через WeasyPrint
+        # Генерируем PDF через WeasyPrint с bookmarks
         pdf_path = self.root_dir / "учебник_информатика.pdf"
         
         try:
+            from weasyprint import HTML, CSS
+            from weasyprint.text.fonts import FontConfiguration
+            
             font_config = FontConfiguration()
+            
+            # CSS для добавления bookmarks (встроенного оглавления PDF)
+            bookmark_css = CSS(string='''
+                h1 { bookmark-level: 1; bookmark-label: content(); }
+                h2 { bookmark-level: 2; bookmark-label: content(); }
+                h3 { bookmark-level: 3; bookmark-label: content(); }
+            ''')
+            
             HTML(string=html_content).write_pdf(
                 pdf_path,
+                stylesheets=[bookmark_css],
                 font_config=font_config
             )
             print(f"  ✅ PDF создан: {pdf_path}")
+            print(f"  ✅ Добавлено встроенное оглавление (bookmarks)")
             
             # Показываем размер
             size_mb = pdf_path.stat().st_size / (1024 * 1024)
@@ -581,6 +722,8 @@ python build_script.py
             return True
         except Exception as e:
             print(f"  ❌ Ошибка при создании PDF: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def create_gitattributes(self):
@@ -662,7 +805,7 @@ def main():
     
     # Переход в корень git-репозитория
     os.chdir("..")
-    
+        
     # Создание и запуск сборщика
     builder = TextbookBuilder(
         chapters_dir="учебник_информатика/chapters",

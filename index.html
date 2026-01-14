@@ -13,18 +13,89 @@
       --theme-color: #0074d9;
     }
     
-    /* Уменьшенные отступы */
-    .markdown-section {
-      max-width: 90% !important;
-      padding: 20px 30px 40px 30px !important;
+    /* ========== Сайдбар как в PDF viewer ========== */
+    .sidebar {
+      padding: 15px 10px !important;
+      background: #f8f9fa !important;
+      border-right: 1px solid #e1e4e8 !important;
     }
     
-    .sidebar {
-      padding: 10px 0 !important;
+    /* Убираем большой заголовок */
+    .sidebar > h1 {
+      display: none !important;
+    }
+    
+    .app-name {
+      display: none !important;
+    }
+    
+    /* Компактное дерево оглавления */
+    .sidebar ul {
+      padding: 0 !important;
+      margin: 0 !important;
     }
     
     .sidebar ul li {
-      padding: 2px 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      line-height: 1.6 !important;
+      list-style: none !important;
+    }
+    
+    /* Разделы (жирные, без отступа) */
+    .sidebar ul li strong {
+      display: block;
+      padding: 8px 5px 4px 5px !important;
+      font-size: 13px !important;
+      color: #24292e !important;
+      font-weight: 600 !important;
+      border-bottom: 1px solid #e1e4e8;
+      margin-top: 12px !important;
+    }
+    
+    .sidebar ul li:first-child strong {
+      margin-top: 0 !important;
+    }
+    
+    /* Главы (с отступом) */
+    .sidebar ul li a {
+      display: block !important;
+      padding: 5px 5px 5px 15px !important;
+      font-size: 13px !important;
+      color: #586069 !important;
+      text-decoration: none !important;
+      border-radius: 3px !important;
+      transition: all 0.2s !important;
+    }
+    
+    /* Ховер на главах */
+    .sidebar ul li a:hover {
+      background: #e8eaed !important;
+      color: #0366d6 !important;
+    }
+    
+    /* АКТИВНАЯ глава (текущая страница) */
+    .sidebar ul li.active > a {
+      background: #0074d9 !important;
+      color: #fff !important;
+      font-weight: 600 !important;
+    }
+    
+    /* Скрытие сайдбара на мобильных */
+    @media screen and (max-width: 768px) {
+      .sidebar {
+        transform: translateX(-300px);
+      }
+      
+      .sidebar.open {
+        transform: translateX(0);
+      }
+    }
+    
+    /* ========== Контент ========== */
+    .markdown-section {
+      max-width: 90% !important;
+      padding: 20px 30px 40px 30px !important;
     }
     
     /* Компактные заголовки */
@@ -80,11 +151,14 @@
   <div id="app">Загрузка...</div>
   <script>
     window.$docsify = {
-      name: 'Учебник по информатике',
+      name: '',  // Убираем название, чтобы не занимало место
       repo: '',
       loadSidebar: true,
       subMaxLevel: 3,
       auto2top: true,
+      alias: {
+        '/.*/_sidebar.md': '/_sidebar.md'
+      },
       search: {
         placeholder: 'Поиск...',
         noData: 'Ничего не найдено',
@@ -93,7 +167,26 @@
       pagination: {
         previousText: '← Предыдущая',
         nextText: 'Следующая →'
-      }
+      },
+      // Автоматическая подсветка активного раздела
+      sidebarDisplayLevel: 1,
+      
+      // Плагин для добавления заголовка в сайдбар
+      plugins: [
+        function(hook, vm) {
+          // Добавляем компактный заголовок в начало сайдбара
+          hook.mounted(function() {
+            const sidebar = document.querySelector('.sidebar');
+            if (sidebar && !document.querySelector('.sidebar-title')) {
+              const title = document.createElement('div');
+              title.className = 'sidebar-title';
+              title.innerHTML = '<strong>📚 Учебник по информатике</strong>';
+              title.style.cssText = 'padding: 10px 5px 15px 5px; font-size: 14px; color: #24292e; border-bottom: 2px solid #0074d9; margin-bottom: 10px;';
+              sidebar.insertBefore(title, sidebar.firstChild);
+            }
+          });
+        }
+      ]
     }
   </script>
   <!-- Docsify core -->
